@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from rapidfuzz import fuzz
 import re
-from streamlit_aggrid import AgGrid, GridOptionsBuilder
 import numpy as np
 
 # --- App setup ---
@@ -23,6 +22,8 @@ if "auto_cleaned" not in st.session_state:
     st.session_state["auto_cleaned"] = False
 if "cleaning_report" not in st.session_state:
     st.session_state["cleaning_report"] = {}
+if "selected_cluster" not in st.session_state:
+    st.session_state["selected_cluster"] = None
 
 # --- Auto-cleaning functions ---
 def auto_clean_dataframe(df):
@@ -389,6 +390,7 @@ with st.sidebar:
             st.session_state["clusters"] = None
             st.session_state["history"] = []
             st.session_state["auto_cleaned"] = False
+            st.session_state["selected_cluster"] = None
             st.rerun()
 
 if st.session_state["df"] is None:
@@ -450,6 +452,7 @@ with tab1:
         st.session_state["last_selected_col"] = selected_col
         st.session_state["mapping"] = {}
         st.session_state["clusters"] = None
+        st.session_state["selected_cluster"] = None
     
     titles = df[selected_col].astype(str).str.strip()
     
@@ -464,6 +467,7 @@ with tab1:
             
             st.session_state["clusters"] = clusters
             st.session_state["mapping"] = mapping
+            st.session_state["selected_cluster"] = None
             
             progress_bar.progress(100)
             progress_bar.empty()
@@ -503,22 +507,23 @@ with tab1:
         st.markdown("---")
         st.subheader("Clustered Titles (Click to review)")
         
-        gb = GridOptionsBuilder.from_dataframe(summary_df)
-        gb.configure_selection(selection_mode="single", use_checkbox=True)
-        grid_options = gb.build()
-        
-        grid_response = AgGrid(
+        # Use native Streamlit dataframe with selection
+        event = st.dataframe(
             summary_df,
-            gridOptions=grid_options,
+            use_container_width=True,
             height=400,
-            update_on=['selectionChanged'],
-            allow_unsafe_jscode=True
+            on_select="rerun",
+            selection_mode="single-row",
+            hide_index=True
         )
         
         # Show cluster details when selected
-        selected_rows = grid_response['selected_rows']
-        if selected_rows is not None and not selected_rows.empty:
-            cluster_idx = int(selected_rows.iloc[0]["Cluster"])
+        if event.selection.rows:
+            cluster_idx = int(summary_df.iloc[event.selection.rows[0]]["Cluster"])
+            st.session_state["selected_cluster"] = cluster_idx
+        
+        if st.session_state["selected_cluster"] is not None:
+            cluster_idx = st.session_state["selected_cluster"]
             current_cluster_orig, current_cluster_cleaned = clusters[cluster_idx]
             
             st.markdown("---")
@@ -531,13 +536,14 @@ with tab1:
                 new_canonical = st.text_input(
                     "Edit canonical title:",
                     value=canonical,
-                    help="This will be the standardized title for all variations"
+                    help="This will be the standardized title for all variations",
+                    key=f"canonical_input_{cluster_idx}"
                 )
             
             with col2:
                 st.write("")
                 st.write("")
-                if st.button("Update"):
+                if st.button("Update", key=f"update_btn_{cluster_idx}"):
                     for title in current_cluster_orig:
                         st.session_state["mapping"][title] = new_canonical
                     st.success("Updated!")
@@ -549,7 +555,7 @@ with tab1:
                 "Count": [len(df[df[selected_col] == t]) for t in current_cluster_orig]
             }).sort_values("Count", ascending=False)
             
-            st.dataframe(variations_df, width='stretch', height=300)
+            st.dataframe(variations_df, use_container_width=True, height=300, hide_index=True)
             
             # Move variation to another cluster
             st.markdown("---")
@@ -771,8 +777,9 @@ with tab2:
                 age_counts = df[age_col].value_counts().sort_index()
                 st.dataframe(
                     age_counts.reset_index().rename(columns={'index': 'Age', age_col: 'Count'}),
-                    width='stretch',
-                    height=300
+                    use_container_width=True,
+                    height=300,
+                    hide_index=True
                 )
                 
                 # Show statistics
@@ -796,8 +803,9 @@ with tab2:
                 gender_counts = df[gender_col].value_counts()
                 st.dataframe(
                     gender_counts.reset_index().rename(columns={'index': 'Gender', gender_col: 'Count'}),
-                    width='stretch',
-                    height=300
+                    use_container_width=True,
+                    height=300,
+                    hide_index=True
                 )
                 
                 # Show statistics
@@ -807,10 +815,8 @@ with tab2:
         
         st.markdown("---")
     
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown("#### Sample Data")
+    st.markdown("#### Sample Data")
+    st.dataframe(df.head(50), use_container_width=True, height=400)
 
 # --- TAB 3: Export ---
 with tab3:
@@ -823,14 +829,34 @@ with tab3:
         # Apply the canonical mappings to the job titles
         df_export[job_col] = df_export[job_col].replace(st.session_state["mapping"])
 
+        # Show preview
+        st.markdown("#### Preview of cleaned data:")
+        st.dataframe(df_export.head(20), use_container_width=True, height=300)
+        
+        st.markdown("---")
+        
+        # Show mapping summary
+        st.markdown("#### Cleaning Summary:")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Original Unique Titles", len(df[job_col].unique()))
+        with col2:
+            st.metric("Cleaned Unique Titles", len(df_export[job_col].unique()))
+        with col3:
+            reduction = len(df[job_col].unique()) - len(df_export[job_col].unique())
+            st.metric("Titles Consolidated", reduction)
+        
+        st.markdown("---")
+
         # Allow user to download the cleaned file
         csv = df_export.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="Download Cleaned CSV",
+            label="📥 Download Cleaned CSV",
             data=csv,
             file_name="cleaned_job_titles.csv",
             mime="text/csv",
+            type="primary"
         )
-        st.success("Cleaned data ready for download.")
+        st.success("Cleaned data ready for download!")
     else:
-        st.info("No cleaned mappings found. Try running Auto-Cluster first.")
+        st.info("No cleaned mappings found. Try running Auto-Cluster first in the Title Cleaning tab.")
