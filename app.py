@@ -40,11 +40,6 @@ def auto_clean_dataframe(df):
         df = df.dropna(how='all')
         report["actions"].append(f"Removed {empty_rows} completely empty rows")
     
-    # 2. Flag duplicate rows (but don't remove - people can have same titles)
-    dup_count = df.duplicated().sum()
-    if dup_count > 0:
-        report["actions"].append(f"Found {dup_count} duplicate rows (kept all rows)")
-    
     # 3. Clean text columns automatically
     text_cols_cleaned = 0
     for col in df.select_dtypes(include=['object']).columns:
