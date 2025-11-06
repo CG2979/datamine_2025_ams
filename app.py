@@ -11,7 +11,7 @@ st.set_page_config(page_title="Job Title Cleaning App", layout="wide")
 # --- Initialize session state ---
 if "history" not in st.session_state:
     st.session_state["history"] = []
-if "mapping" not in st.session_state:S
+if "mapping" not in st.session_state:
     st.session_state["mapping"] = {}
 if "clusters" not in st.session_state:
     st.session_state["clusters"] = None
