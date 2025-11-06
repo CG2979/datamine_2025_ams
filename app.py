@@ -184,6 +184,7 @@ def auto_cluster_titles(titles, threshold=90):
         r'\bpost doctoral\b': 'postdoctoral',
         r'\bpostdoctor\b': 'postdoctoral',
         r'\bpostdoctorate\b': 'postdoctoral',
+        r'\bPost Doc\b': 'postdoctoral',
         
         # Common typos
         r'\breserch\b': 'research',
@@ -814,10 +815,7 @@ with tab2:
                 st.metric("Empty Values", empty_count)
         
         st.markdown("---")
-    
-    st.markdown("#### Sample Data")
-    st.dataframe(df.head(50), use_container_width=True, height=400)
-
+        
 # --- TAB 3: Export ---
 with tab3:
     st.subheader("Export Cleaned Data")
