@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from rapidfuzz import fuzz
 import re
-from streamlit-aggrid import AgGrid, GridOptionsBuilder
+from streamlit_aggrid import AgGrid, GridOptionsBuilder
 import numpy as np
 
 # --- App setup ---
