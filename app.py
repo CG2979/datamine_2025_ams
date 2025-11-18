@@ -217,34 +217,35 @@ def auto_cluster_titles(titles, threshold=90):
         "biostatistician", "statistician",
     ]
     
-def normalize_title(title: str) -> str:
-    # First fix typos and abbreviations
-    t = fix_typos_and_abbrev(title)
-    # Remove punctuation
-    t = re.sub(r"[^a-z0-9\s]", "", t)
-    # Remove extra spaces
-    t = re.sub(r"\s+", " ", t).strip()
-
-    # --- FORCE all postdoctoral variations into one cluster ---
-    if re.search(r"\bpost[-\s]?doc|\bpostdoctoral|\bpostdoctor", t):
-        return "postdoctoral"
-
-    # Modifiers that should be preserved before job keywords
-    PRESERVE_MODIFIERS = ["associate", "assistant"]
-    
-    # Longest keyword match logic...
-    for keyword in sorted(JOB_KEYWORDS, key=len, reverse=True):
-        match = re.search(rf"\b{re.escape(keyword)}\b", t)
-        if match:
-            start_idx = match.start()
-            prefix = t[:start_idx].strip()
-            words_before = prefix.split()
-            if words_before and words_before[-1] in PRESERVE_MODIFIERS:
-                modifier_start = t.rfind(words_before[-1], 0, start_idx)
-                return t[modifier_start:].strip()
-            else:
-                return t[start_idx:].strip()
-    return t
+    def normalize_title(title: str) -> str:
+        # First fix typos and abbreviations
+        t = fix_typos_and_abbrev(title)
+        # Remove punctuation
+        t = re.sub(r"[^a-z0-9\s]", "", t)
+        # Remove extra spaces
+        t = re.sub(r"\s+", " ", t).strip()
+        
+        # Modifiers that should be preserved before job keywords
+        PRESERVE_MODIFIERS = ["associate", "assistant"]
+        
+        # Find longest matching keyword and preserve modifiers + keyword + everything after
+        # Sort by length descending to match most specific first (e.g., "adjunct assistant professor" before "assistant professor")
+        for keyword in sorted(JOB_KEYWORDS, key=len, reverse=True):
+            match = re.search(rf"\b{re.escape(keyword)}\b", t)
+            if match:
+                start_idx = match.start()
+                
+                # Check if there's a preserved modifier immediately before the keyword
+                prefix = t[:start_idx].strip()
+                words_before = prefix.split()
+                
+                if words_before and words_before[-1] in PRESERVE_MODIFIERS:
+                    # Include the modifier
+                    modifier_start = t.rfind(words_before[-1], 0, start_idx)
+                    return t[modifier_start:].strip()
+                else:
+                    return t[start_idx:].strip()
+        return t
 
     
     # Apply normalization
