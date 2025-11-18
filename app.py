@@ -283,10 +283,18 @@ def auto_cluster_titles(titles, threshold=90):
     
     # Auto-generate canonical titles with proper expansion
     mapping = {}
+    postdoc_titles = []  # Collect all postdoc/fellow titles
+
     for cluster_orig, cluster_cleaned in clusters:
         # Use cleaned titles to pick canonical
         expanded_titles = cluster_cleaned
+        # Check if cluster contains postdoctoral or fellow - merge all into "Postdoctoral"
+        has_postdoc = any('postdoctoral' in t.lower() or 'fellow' in t.lower() for t in expanded_titles)
         
+        if has_postdoc:
+            # Add all titles from this cluster to postdoc collection
+            postdoc_titles.extend(cluster_orig)
+            continue  # Skip normal processing for these     
         # Check if "visiting" appears in majority of titles
         visiting_count = sum(1 for t in expanded_titles if 'visiting' in t.lower())
         has_visiting = visiting_count > len(cluster_orig) / 2
