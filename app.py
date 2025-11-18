@@ -226,7 +226,7 @@ def auto_cluster_titles(titles, threshold=90):
         # Remove extra spaces
         t = re.sub(r"\s+", " ", t).strip()
         
-        if re.search(r"\bpost[-\s]?doc|\bpostdoctoral|\bpostdoctor", t):
+        if re.search(r"\bpostdoctoral\b", t):
             return "postdoctoral"
             
         # Modifiers that should be preserved before job keywords
