@@ -794,7 +794,8 @@ with tab1:
 # --- TAB 2: Data Overview ---
 with tab2:
     st.subheader("Dataset Overview")
-        # Top 100 Job Titles Section
+    
+    # Top 100 Job Titles Section
     st.markdown("### Top 100 Job Titles")
     
     # Auto-detect or use selected job title column
@@ -804,8 +805,17 @@ with tab2:
         job_col = auto_detect_job_title_column(df)
     
     if job_col and job_col in df.columns:
-        # Get value counts for job titles
-        title_counts = df[job_col].value_counts().head(100)
+        # Check if we have mappings (canonical titles)
+        if st.session_state.get("mapping"):
+            # Use canonical titles
+            df_with_canonical = df.copy()
+            df_with_canonical[job_col] = df_with_canonical[job_col].replace(st.session_state["mapping"])
+            title_counts = df_with_canonical[job_col].value_counts().head(100)
+            title_type = "Canonical"
+        else:
+            # Use original titles
+            title_counts = df[job_col].value_counts().head(100)
+            title_type = "Original"
         
         # Create a dataframe for display
         top_titles_df = pd.DataFrame({
@@ -814,7 +824,10 @@ with tab2:
             'Count': title_counts.values
         })
         
-        st.markdown(f"**Showing top titles from column:** `{job_col}`")
+        st.markdown(f"**Showing top {title_type.lower()} titles from column:** `{job_col}`")
+        if title_type == "Original":
+            st.info("💡 Run Auto-Cluster in the Title Cleaning tab to see canonical titles here")
+        
         st.dataframe(
             top_titles_df,
             use_container_width=True,
@@ -825,7 +838,11 @@ with tab2:
         # Summary stats
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Unique Titles", len(df[job_col].unique()))
+            if st.session_state.get("mapping"):
+                unique_count = len(set(st.session_state["mapping"].values()))
+                st.metric("Total Unique Canonical Titles", unique_count)
+            else:
+                st.metric("Total Unique Titles", len(df[job_col].unique()))
         with col2:
             st.metric("Top 100 Total Records", title_counts.sum())
         with col3:
