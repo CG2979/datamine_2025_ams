@@ -355,8 +355,21 @@ def auto_cluster_titles(titles, threshold=90):
         # Map all ORIGINAL titles to this canonical
         for title in cluster_orig:
             mapping[title] = canonical
+
+    # Merge clusters with duplicate canonical titles
+    canonical_to_originals = {}
+    for orig_title, canon_title in mapping.items():
+        if canon_title not in canonical_to_originals:
+            canonical_to_originals[canon_title] = []
+        canonical_to_originals[canon_title].append(orig_title)
     
-    return clusters, mapping
+    # Rebuild clusters - one cluster per unique canonical title
+    merged_clusters = []
+    for canon_title, orig_titles in canonical_to_originals.items():
+        merged_clusters.append((orig_titles, orig_titles))
+    
+    return merged_clusters, mapping
+    
 # --- Sidebar ---
 with st.sidebar:
     st.title("Survey Data Cleaner")
