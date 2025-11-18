@@ -226,7 +226,7 @@ def auto_cluster_titles(titles, threshold=90):
         t = re.sub(r"\s+", " ", t).strip()
         
         # Modifiers that should be preserved before job keywords
-        PRESERVE_MODIFIERS = ["senior", "associate", "assistant", "junior", "lead", "principal", "chief"]
+        PRESERVE_MODIFIERS = ["associate", "assistant"]
         
         # Find longest matching keyword and preserve modifiers + keyword + everything after
         # Sort by length descending to match most specific first (e.g., "adjunct assistant professor" before "assistant professor")
