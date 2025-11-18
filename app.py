@@ -356,6 +356,11 @@ def auto_cluster_titles(titles, threshold=90):
         for title in cluster_orig:
             mapping[title] = canonical
 
+    # Post-process: rename any canonical title containing "Fellow" to "Postdoctoral"
+    for orig_title, canon_title in mapping.items():
+        if 'fellow' in canon_title.lower():
+            mapping[orig_title] = "Postdoctoral"
+            
     # Merge clusters with duplicate canonical titles
     canonical_to_originals = {}
     for orig_title, canon_title in mapping.items():
