@@ -281,7 +281,7 @@ def auto_cluster_titles(titles, threshold=90):
         # Store both for later use
         clusters.append((full_titles, full_titles_cleaned))
     
-    # Auto-generate canonical titles with proper expansion
+# Auto-generate canonical titles with proper expansion
     mapping = {}
     postdoc_titles = []  # Collect all postdoc/fellow titles
     
@@ -296,8 +296,20 @@ def auto_cluster_titles(titles, threshold=90):
         if not expanded_titles:
             continue
         
-        # Check if cluster contains postdoctoral or fellow - merge all into "Postdoctoral"
-        has_postdoc = any('postdoctoral' in t.lower() or 'fellow' in t.lower() for t in expanded_titles)
+        # Check if cluster contains postdoctoral - merge all into "Postdoctoral"
+        # Check ORIGINAL titles, not cleaned/expanded ones
+        has_postdoc = any('postdoctoral' in str(t).lower() for t in cluster_orig)
+        
+        # Check for postdoc-related fellow titles in ORIGINAL titles
+        if not has_postdoc:
+            has_postdoc = any(
+                'postdoctoral fellow' in str(t).lower() or 
+                'postdoc fellow' in str(t).lower() or
+                'post-doc fellow' in str(t).lower() or
+                'post doctoral fellow' in str(t).lower() or
+                'post doc' in str(t).lower()
+                for t in cluster_orig
+            )
         
         if has_postdoc:
             # Add all titles from this cluster to postdoc collection
@@ -338,7 +350,6 @@ def auto_cluster_titles(titles, threshold=90):
         mapping[title] = "Postdoctoral"
     
     return clusters, mapping
-
 # --- Sidebar ---
 with st.sidebar:
     st.title("Survey Data Cleaner")
