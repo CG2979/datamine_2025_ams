@@ -772,7 +772,7 @@ with tab1:
                 variation_index_for_new = st.text_input(
                     "Enter variation index:",
                     value="",
-                    key=f"new_cluster_var_{cluster_idx}",
+                    key=f"split_var_idx_{cluster_idx}",
                     help=f"Enter index 0-{len(current_cluster_orig)-1}"
                 )
             
@@ -780,14 +780,14 @@ with tab1:
                 new_cluster_name = st.text_input(
                     "New cluster name:",
                     value="",
-                    key=f"new_cluster_name_{cluster_idx}",
+                    key=f"split_cluster_name_{cluster_idx}",
                     help="Enter the canonical title for the new cluster"
                 )
             
             with col3:
                 st.write("")
                 st.write("")
-                if st.button("Split Out", key=f"create_new_btn_{cluster_idx}"):
+                if st.button("Split Out", key=f"split_btn_{cluster_idx}"):
                     try:
                         var_idx_new = int(variation_index_for_new)
                         
