@@ -14,6 +14,8 @@ def initialize_session_state():
         "selected_cluster": None,
         "similarity_threshold": 90,
         "last_selected_col": None,
+        "merged_df": None,
+        "merge_name": "merged_data",
     }
     
     for key, value in defaults.items():
