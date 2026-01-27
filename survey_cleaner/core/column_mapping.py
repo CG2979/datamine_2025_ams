@@ -3,6 +3,7 @@
 import pandas as pd
 from rapidfuzz import fuzz
 from typing import Dict, List, Tuple
+import re
 
 
 def suggest_column_mappings(cols1: List[str], cols2: List[str], threshold: int = 80) -> Dict[str, str]:
@@ -178,132 +179,10 @@ def get_year_pattern_mappings(cols1: List[str], cols2: List[str]) -> Dict[str, s
     Returns:
         Dictionary mapping cols2 to cols1: {col2_name: col1_name}
     """
-    import re
-    
     suggestions = {}
     
     # Pattern to match year prefix (e.g., "2012Emp_Type")
     year_pattern = re.compile(r'^(\d{4})(.+)$')
-
-
-def suggest_semantic_mappings(cols1: List[str], cols2: List[str]) -> Dict[str, str]:
-    """
-    Suggest mappings based on semantic equivalents.
-    
-    Args:
-        cols1: Column names from first file
-        cols2: Column names from second file
-    
-    Returns:
-        Dictionary mapping cols2 to cols1: {col2_name: col1_name}
-    """
-    semantic_map = get_common_semantic_mappings()
-    suggestions = {}
-    
-    # Create reverse lookup: alternative -> canonical
-    alt_to_canonical = {}
-    for canonical, alternatives in semantic_map.items():
-        for alt in alternatives:
-            alt_to_canonical[alt.lower()] = canonical
-        alt_to_canonical[canonical.lower()] = canonical
-    
-    # Map cols1 to their canonical forms
-    cols1_canonical = {}
-    for col1 in cols1:
-        canonical = alt_to_canonical.get(col1.lower(), col1.lower())
-        cols1_canonical[canonical] = col1
-    
-    # Map cols2 to cols1 via canonical forms
-    for col2 in cols2:
-        if col2 in cols1:
-            suggestions[col2] = col2
-            continue
-            
-        canonical = alt_to_canonical.get(col2.lower())
-        if canonical and canonical in cols1_canonical:
-            suggestions[col2] = cols1_canonical[canonical]
-    
-    # Also try year pattern matching
-    year_suggestions = get_year_pattern_mappings(cols1, cols2)
-    suggestions.update(year_suggestions)
-    
-    return suggestions
-
-
-def apply_column_mapping(df: pd.DataFrame, mapping: Dict[str, str]) -> pd.DataFrame:
-    """
-    Apply column mapping to a dataframe (rename columns).
-    
-    Args:
-        df: Input dataframe
-        mapping: Dictionary mapping old names to new names
-    
-    Returns:
-        DataFrame with renamed columns
-    """
-    df_copy = df.copy()
-    
-    # Only rename columns that exist in the dataframe
-    valid_mapping = {old: new for old, new in mapping.items() if old in df_copy.columns}
-    
-    df_copy = df_copy.rename(columns=valid_mapping)
-    
-    return df_copy
-
-
-def get_unmapped_columns(cols1: List[str], cols2: List[str], mapping: Dict[str, str]) -> Tuple[List[str], List[str]]:
-    """
-    Get columns that haven't been mapped yet.
-    
-    Args:
-        cols1: Column names from first file
-        cols2: Column names from second file
-        mapping: Current mapping dict {col2: col1}
-    
-    Returns:
-        Tuple of (unmapped_from_cols1, unmapped_from_cols2)
-    """
-    mapped_cols1 = set(mapping.values())
-    mapped_cols2 = set(mapping.keys())
-    
-    unmapped_cols1 = [col for col in cols1 if col not in mapped_cols1]
-    unmapped_cols2 = [col for col in cols2 if col not in mapped_cols2]
-    
-    return unmapped_cols1, unmapped_cols2
-
-
-def validate_mapping(mapping: Dict[str, str], cols1: List[str], cols2: List[str]) -> List[str]:
-    """
-    Validate a column mapping and return list of errors.
-    
-    Args:
-        mapping: Proposed mapping {col2: col1}
-        cols1: Valid column names from file 1
-        cols2: Valid column names from file 2
-    
-    Returns:
-        List of error messages (empty if valid)
-    """
-    errors = []
-    
-    for col2, col1 in mapping.items():
-        if col2 not in cols2:
-            errors.append(f"Source column '{col2}' does not exist in File 2")
-        if col1 not in cols1:
-            errors.append(f"Target column '{col1}' does not exist in File 1")
-    
-    # Check for duplicate mappings (multiple col2 -> same col1)
-    target_counts = {}
-    for col2, col1 in mapping.items():
-        target_counts[col1] = target_counts.get(col1, 0) + 1
-    
-    for col1, count in target_counts.items():
-        if count > 1:
-            sources = [col2 for col2, target in mapping.items() if target == col1]
-            errors.append(f"Multiple columns map to '{col1}': {sources}")
-    
-    return errors
-)
     
     # Build a lookup of base names in cols1
     cols1_base_to_full = {}
@@ -363,6 +242,10 @@ def suggest_semantic_mappings(cols1: List[str], cols2: List[str]) -> Dict[str, s
         canonical = alt_to_canonical.get(col2.lower())
         if canonical and canonical in cols1_canonical:
             suggestions[col2] = cols1_canonical[canonical]
+    
+    # Also try year pattern matching
+    year_suggestions = get_year_pattern_mappings(cols1, cols2)
+    suggestions.update(year_suggestions)
     
     return suggestions
 
