@@ -183,7 +183,7 @@ def get_year_pattern_mappings(cols1: List[str], cols2: List[str]) -> Dict[str, s
     suggestions = {}
     
     # Pattern to match year prefix (e.g., "2012Emp_Type")
-    year_pattern = re.compile(r'^(\d{4})(.+)
+    year_pattern = re.compile(r'^(\d{4})(.+)$')
 
 
 def suggest_semantic_mappings(cols1: List[str], cols2: List[str]) -> Dict[str, str]:
