@@ -3,6 +3,13 @@
 import streamlit as st
 import pandas as pd
 from core.data_cleaning import auto_clean_dataframe
+from core.column_mapping import (
+    suggest_column_mappings,
+    suggest_semantic_mappings,
+    apply_column_mapping,
+    get_unmapped_columns,
+    validate_mapping
+)
 
 
 def render_merge_files_tab():
@@ -79,26 +86,148 @@ def _render_vertical_merge(df1, df2, name1, name2):
     only_in_file1 = cols1 - cols2
     only_in_file2 = cols2 - cols1
     
-    st.markdown("#### Column Comparison")
+    # Column Mapping Section (NEW)
+    if only_in_file2:
+        st.markdown("#### Column Mapping")
+        st.info("📝 File 2 has columns not in File 1. Map them to align the data correctly.")
+        
+        # Initialize mapping in session state
+        if "column_mapping" not in st.session_state:
+            st.session_state["column_mapping"] = {}
+        
+        # Auto-suggest mappings
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("🔍 Auto-Suggest (Fuzzy Match)", help="Use fuzzy matching to suggest mappings"):
+                fuzzy_suggestions = suggest_column_mappings(list(cols1), list(only_in_file2), threshold=75)
+                st.session_state["column_mapping"].update(fuzzy_suggestions)
+                st.success(f"Suggested {len(fuzzy_suggestions)} mappings")
+                st.rerun()
+        
+        with col2:
+            if st.button("🧠 Auto-Suggest (Semantic)", help="Use common name equivalents"):
+                semantic_suggestions = suggest_semantic_mappings(list(cols1), list(only_in_file2))
+                st.session_state["column_mapping"].update(semantic_suggestions)
+                st.success(f"Suggested {len(semantic_suggestions)} mappings")
+                st.rerun()
+        
+        with col3:
+            if st.button("📅 Auto-Suggest (Smart)", help="Detect year patterns and code/name pairs", key="smart_suggest"):
+                from core.column_mapping import get_year_pattern_mappings
+                # Combine semantic + year patterns
+                semantic_suggestions = suggest_semantic_mappings(list(cols1), list(only_in_file2))
+                year_suggestions = get_year_pattern_mappings(list(cols1), list(only_in_file2))
+                smart_suggestions = {**semantic_suggestions, **year_suggestions}
+                st.session_state["column_mapping"].update(smart_suggestions)
+                st.success(f"Suggested {len(smart_suggestions)} mappings")
+                st.rerun()
+        
+        # Manual mapping interface
+        st.markdown("**Map File 2 columns to File 1 columns:**")
+        
+        mapping_changed = False
+        current_mapping = st.session_state["column_mapping"].copy()
+        
+        # Create mapping rows
+        for col2 in sorted(only_in_file2):
+            col_a, col_b, col_c = st.columns([2, 2, 1])
+            
+            with col_a:
+                st.text_input(
+                    "From File 2:",
+                    value=col2,
+                    disabled=True,
+                    key=f"from_{col2}"
+                )
+            
+            with col_b:
+                # Dropdown with all cols1 + "Don't map" option
+                options = ["(Don't map)"] + sorted(cols1)
+                current_value = current_mapping.get(col2, "(Don't map)")
+                
+                if current_value not in options:
+                    current_value = "(Don't map)"
+                
+                new_value = st.selectbox(
+                    "To File 1:",
+                    options=options,
+                    index=options.index(current_value) if current_value in options else 0,
+                    key=f"map_{col2}",
+                    label_visibility="collapsed"
+                )
+                
+                if new_value == "(Don't map)":
+                    if col2 in current_mapping:
+                        del current_mapping[col2]
+                        mapping_changed = True
+                elif new_value != current_mapping.get(col2):
+                    current_mapping[col2] = new_value
+                    mapping_changed = True
+            
+            with col_c:
+                # Show similarity score if auto-suggested
+                if col2 in st.session_state["column_mapping"]:
+                    from rapidfuzz import fuzz
+                    target = st.session_state["column_mapping"][col2]
+                    score = fuzz.ratio(col2.lower(), target.lower())
+                    st.metric("Match", f"{score}%", label_visibility="collapsed")
+        
+        # Update session state if changed
+        if mapping_changed:
+            st.session_state["column_mapping"] = current_mapping
+        
+        # Validate mapping
+        if current_mapping:
+            errors = validate_mapping(current_mapping, list(cols1), list(cols2))
+            if errors:
+                st.error("❌ Mapping errors:")
+                for error in errors:
+                    st.write(f"- {error}")
+            else:
+                st.success(f"✅ {len(current_mapping)} columns mapped successfully")
+        
+        # Clear mapping button
+        if st.button("Clear All Mappings"):
+            st.session_state["column_mapping"] = {}
+            st.rerun()
+        
+        st.markdown("---")
+    
+    # Show updated column comparison with mappings applied
+    st.markdown("#### Column Comparison (After Mapping)")
+    
+    # Calculate what columns will look like after mapping
+    mapped_cols2 = set(df2.columns)
+    if "column_mapping" in st.session_state and st.session_state["column_mapping"]:
+        # Simulate applying mapping
+        for old_col, new_col in st.session_state["column_mapping"].items():
+            if old_col in mapped_cols2:
+                mapped_cols2.remove(old_col)
+                mapped_cols2.add(new_col)
+    
+    common_after_mapping = cols1.intersection(mapped_cols2)
+    only_in_file1_after = cols1 - mapped_cols2
+    only_in_file2_after = mapped_cols2 - cols1
+    
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("Common Columns", len(common_cols))
-        if common_cols:
+        st.metric("Common Columns", len(common_after_mapping))
+        if common_after_mapping:
             with st.expander("View common columns"):
-                st.write(list(common_cols))
+                st.write(sorted(common_after_mapping))
     
     with col2:
-        st.metric(f"Only in {name1}", len(only_in_file1))
-        if only_in_file1:
+        st.metric(f"Only in {name1}", len(only_in_file1_after))
+        if only_in_file1_after:
             with st.expander(f"View columns only in {name1}"):
-                st.write(list(only_in_file1))
+                st.write(sorted(only_in_file1_after))
     
     with col3:
-        st.metric(f"Only in {name2}", len(only_in_file2))
-        if only_in_file2:
+        st.metric(f"Only in {name2}", len(only_in_file2_after))
+        if only_in_file2_after:
             with st.expander(f"View columns only in {name2}"):
-                st.write(list(only_in_file2))
+                st.write(sorted(only_in_file2_after))
     
     # Options
     st.markdown("#### Merge Options")
@@ -106,7 +235,7 @@ def _render_vertical_merge(df1, df2, name1, name2):
     auto_clean = st.checkbox("Auto-clean both files before merging", value=True)
     
     handle_missing_cols = st.radio(
-        "How to handle missing columns:",
+        "How to handle unmapped columns:",
         ["Keep all columns (fill missing with NaN)", "Keep only common columns"],
         help="Choose how to handle columns that don't exist in both files"
     )
@@ -119,6 +248,17 @@ def _render_vertical_merge(df1, df2, name1, name2):
     
     # Preview button
     if st.button("Preview Merge", type="primary"):
+        # Validate mapping first
+        if "column_mapping" in st.session_state and st.session_state["column_mapping"]:
+            errors = validate_mapping(
+                st.session_state["column_mapping"], 
+                list(cols1), 
+                list(cols2)
+            )
+            if errors:
+                st.error("Cannot merge: Fix mapping errors first")
+                return
+        
         with st.spinner("Merging files..."):
             # Clean if requested
             if auto_clean:
@@ -128,6 +268,11 @@ def _render_vertical_merge(df1, df2, name1, name2):
                 df1_clean = df1.copy()
                 df2_clean = df2.copy()
             
+            # Apply column mapping to df2
+            if "column_mapping" in st.session_state and st.session_state["column_mapping"]:
+                df2_clean = apply_column_mapping(df2_clean, st.session_state["column_mapping"])
+                st.success(f"Applied {len(st.session_state['column_mapping'])} column mappings to File 2")
+            
             # Add source column if requested
             if add_source_column:
                 df1_clean['_source_file'] = name1
@@ -135,8 +280,10 @@ def _render_vertical_merge(df1, df2, name1, name2):
             
             # Merge
             if handle_missing_cols == "Keep only common columns":
-                df1_clean = df1_clean[list(common_cols)]
-                df2_clean = df2_clean[list(common_cols)]
+                # Recalculate common columns after mapping
+                common_after = set(df1_clean.columns).intersection(set(df2_clean.columns))
+                df1_clean = df1_clean[list(common_after)]
+                df2_clean = df2_clean[list(common_after)]
                 if add_source_column:
                     # Re-add source column after filtering
                     df1_clean['_source_file'] = name1
