@@ -41,10 +41,10 @@ def _render_merge_options(file1, file2):
     st.markdown("---")
     st.subheader("Merge Settings")
     
-    # Load both files
+    # Load both files with encoding detection
     try:
-        df1 = pd.read_csv(file1, low_memory=False)
-        df2 = pd.read_csv(file2, low_memory=False)
+        df1 = _load_csv_with_encoding(file1)
+        df2 = _load_csv_with_encoding(file2)
     except Exception as e:
         st.error(f"Error loading files: {str(e)}")
         return
@@ -130,7 +130,7 @@ def _render_vertical_merge(df1, df2, name1, name2):
         
         # Create mapping rows
         for col2 in sorted(only_in_file2):
-            col_a, col_b, col_c = st.columns([2, 2, 1])
+            col_a, col_b = st.columns([2, 2])
             
             with col_a:
                 st.text_input(
@@ -163,14 +163,6 @@ def _render_vertical_merge(df1, df2, name1, name2):
                 elif new_value != current_mapping.get(col2):
                     current_mapping[col2] = new_value
                     mapping_changed = True
-            
-            with col_c:
-                # Show similarity score if auto-suggested
-                if col2 in st.session_state["column_mapping"]:
-                    from rapidfuzz import fuzz
-                    target = st.session_state["column_mapping"][col2]
-                    score = fuzz.ratio(col2.lower(), target.lower())
-                    st.metric("Match", f"{score}%", label_visibility="collapsed")
         
         # Update session state if changed
         if mapping_changed:
