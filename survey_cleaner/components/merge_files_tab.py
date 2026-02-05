@@ -41,12 +41,13 @@ def _render_merge_options(file1, file2):
     st.markdown("---")
     st.subheader("Merge Settings")
     
-    # Load both files with encoding detection
+    # Load both files
     try:
-        df1 = _load_csv_with_encoding(file1)
-        df2 = _load_csv_with_encoding(file2)
+        df1 = pd.read_csv(file1, low_memory=False)
+        df2 = pd.read_csv(file2, low_memory=False)
     except Exception as e:
         st.error(f"Error loading files: {str(e)}")
+        st.info("💡 Ensure your CSV files are UTF-8 encoded. You can re-save them in Excel or a text editor with UTF-8 encoding.")
         return
     
     # Show file info
